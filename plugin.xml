@@ -25,6 +25,8 @@
         <js-module src="src/browser/CordovaStripe.js" name="CordovaStripe">
             <runs />
         </js-module>
+
+        <dependency id="cordova-plugin-inappbrowser" />
     </platform>
 
     <platform name="android">
@@ -41,6 +43,8 @@
         </config-file>
 
         <source-file src="src/android/CordovaStripe.java" target-dir="src/com/stevanstev/plugin" />
+
+        <dependency id="cordova-plugin-inappbrowser" />
     </platform>
 
     <platform name="ios">
@@ -53,5 +57,6 @@
         <source-file src="src/ios/CordovaStripe.swift"/>
 
         <dependency id="cordova-plugin-add-swift-support" />
+        <dependency id="cordova-plugin-inappbrowser" />
     </platform>
 </plugin>

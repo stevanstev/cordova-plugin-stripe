@@ -16,5 +16,9 @@
         "www",
         "plugin.xml"
     ],
-    "license": "MIT"
+    "license": "MIT",
+    "cordovaPlugins": [
+        "cordova.plugins.stripe",
+        "cordova-plugin-add-swift-support"
+    ]
 }

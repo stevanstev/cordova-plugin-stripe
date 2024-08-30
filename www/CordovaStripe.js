@@ -4,13 +4,10 @@ var exec = require('cordova/exec');
 var argscheck = require('cordova/argscheck');
 var getValue = argscheck.getValue;
 
-// @desc Main Object of Function(s)
+// Main Object of Function(s)
 var stripeModule = {};
 
-/*
-    @name Create Payment Session
-    @desc Create new object of one time payment session
-*/
+// Create new object of one time payment session
 stripeModule.createPaymentSession = (successCallback, errorCallback, options) => {
     options = options || {};
 
@@ -23,6 +20,20 @@ stripeModule.createPaymentSession = (successCallback, errorCallback, options) =>
     args.push(getValue(options.paymentSuccessUrl, null));
     
     exec(successCallback, errorCallback, 'CordovaStripe', 'createPaymentSession', args);
+}
+
+stripeModule.openInAppWebPage = (url) =>  {
+    var ref = cordova.InAppBrowser.open(url, '_blank', 'location=yes');
+    ref.addEventListener('loadstart', function() { console.log('Loading started'); });
+    ref.addEventListener('loadstop', function() { console.log('Loading finished'); });
+    ref.addEventListener('exit', function() { console.log('Browser closed'); });
+}
+
+stripeModule.openExternalWebPage = (url) =>  {
+    var ref = window.open(url, '_blank', 'location=yes');
+    ref.addEventListener('loadstart', function() { console.log('Loading started'); });
+    ref.addEventListener('loadstop', function() { console.log('Loading finished'); });
+    ref.addEventListener('exit', function() { console.log('Browser closed'); });
 }
 
 module.exports = stripeModule;

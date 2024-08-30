@@ -1,0 +1,20 @@
+{
+    "name": "cordova-plugin-stripe",
+    "version": "1.0.0",
+    "description": "Cordova plugin that create payment link with stripe payment gateway",
+    "author": "Stefanus Steven <stevanussteven7@gmail.com>",
+    "cordova": {
+        "id": "cordova-plugin-stripe",
+        "platforms": [
+          "android",
+          "ios",
+          "browser"
+        ]
+    },
+    "files": [
+        "src",
+        "www",
+        "plugin.xml"
+    ],
+    "license": "MIT"
+}

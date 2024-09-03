@@ -31,10 +31,9 @@ public class CordovaStripe extends CordovaPlugin {
             String paymentCancelUrl = args.optString(5, null);
             String priceId = args.optString(6, null);
             String customerID = args.optString(7, null);
-            int itemQuantity = args.optInt(8, 1);
 
             this.createPaymentSession(secretKey, mode, currency, amount, paymentSuccessUrl, paymentCancelUrl, priceId,
-                    customerID, itemQuantity, callbackContext);
+                    customerID, callbackContext);
             return true;
         }
 
@@ -42,48 +41,25 @@ public class CordovaStripe extends CordovaPlugin {
     }
 
     private void createPaymentSession(String secretKey, String mode, String currency, int amount,
-            String paymentSuccessUrl, String paymentCancelUrl, String priceId, String customerID, int itemQuantity,
+            String paymentSuccessUrl, String paymentCancelUrl, String priceId, String customerID,
             CallbackContext callbackContext) {
-        if (mode.equals("subscription")) {
-            createSubscriptionLink(secretKey, priceId, customerID, itemQuantity, paymentSuccessUrl, paymentCancelUrl,
+        if (mode.toLowerCase().equals("subscription")) {
+            createSubscriptionLink(secretKey, priceId, customerID, paymentSuccessUrl, paymentCancelUrl,
                     callbackContext);
         } else {
-            createProduct(secretKey, "PayProduct", currency, amount, paymentSuccessUrl, paymentCancelUrl,
+            createPaymentLink(secretKey, amount, currency, paymentSuccessUrl, paymentCancelUrl,
                     callbackContext);
         }
     }
 
-    private void createProduct(String secretKey, String productName, String currency, int amount,
-            String paymentSuccessUrl, String paymentCancelUrl, CallbackContext callbackContext) {
-        new ApiTask(secretKey, "/products", "POST", "name=" + productName, response -> {
-            try {
-                JSONObject json = new JSONObject(response);
-                String productId = json.getString("id");
-                createPrice(secretKey, currency, amount, productId, paymentSuccessUrl, paymentCancelUrl,
-                        callbackContext);
-            } catch (JSONException e) {
-                callbackContext.error("Failed to create product: " + e.getMessage());
-            }
-        }, callbackContext).execute();
-    }
-
-    private void createPrice(String secretKey, String currency, int amount, String productId, String paymentSuccessUrl,
-            String paymentCancelUrl, CallbackContext callbackContext) {
-        String requestBody = "unit_amount=" + amount + "&currency=" + currency + "&product=" + productId;
-        new ApiTask(secretKey, "/prices", "POST", requestBody, response -> {
-            try {
-                JSONObject json = new JSONObject(response);
-                String priceId = json.getString("id");
-                createPaymentLink(secretKey, priceId, paymentSuccessUrl, paymentCancelUrl, callbackContext);
-            } catch (JSONException e) {
-                callbackContext.error("Failed to create price: " + e.getMessage());
-            }
-        }, callbackContext).execute();
-    }
-
-    private void createPaymentLink(String secretKey, String priceId, String paymentSuccessUrl, String paymentCancelUrl,
+    private void createPaymentLink(String secretKey, int unitAmount, String currency, String paymentSuccessUrl,
+            String paymentCancelUrl,
             CallbackContext callbackContext) {
-        String requestBody = "line_items[0][price]=" + priceId + "&line_items[0][quantity]=1&mode=payment&success_url="
+        String productName = "Stripe Product Checkout";
+        String requestBody = "line_items[0][price_data][unit_amount]=" + unitAmount +
+                "&line_items[0][price_data][currency]=" + currency +
+                "&line_items[0][price_data][product_data][name]=" + productName
+                + "&line_items[0][quantity]=1&mode=payment&success_url="
                 + paymentSuccessUrl;
         if (paymentCancelUrl != null) {
             requestBody += "&cancel_url=" + paymentCancelUrl;
@@ -100,10 +76,11 @@ public class CordovaStripe extends CordovaPlugin {
         }, callbackContext).execute();
     }
 
-    private void createSubscriptionLink(String secretKey, String priceId, String customerID, int itemQuantity,
+    private void createSubscriptionLink(String secretKey, String priceId, String customerID,
             String paymentSuccessUrl, String paymentCancelUrl, CallbackContext callbackContext) {
-        String requestBody = "line_items[0][price]=" + priceId + "&line_items[0][quantity]=" + itemQuantity
-                + "&mode=subscription&success_url=" + paymentSuccessUrl + "&customer=" + customerID;
+        String requestBody = "line_items[0][price]=" + priceId
+                + "&line_items[0][quantity]=1&mode=subscription&success_url=" + paymentSuccessUrl + "&customer="
+                + customerID;
         if (paymentCancelUrl != null) {
             requestBody += "&cancel_url=" + paymentCancelUrl;
         }

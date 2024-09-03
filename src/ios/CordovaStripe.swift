@@ -7,14 +7,15 @@ import Foundation
     @objc(createPaymentSession:)
     func createPaymentSession(command: CDVInvokedUrlCommand) {
         let secretKey = command.argument(at: 0) as? String ?? ""
-        let mode = command.argument(at: 0) as? String
+        let mode = command.argument(at: 1) as? String ?? "payment"
         let currency = command.argument(at: 2) as? String ?? ""
-        let amount = command.argument(at: 3) as? Int ?? 0
+        // convert amount to be int type
+        let amountString = command.argument(at: 3) as? String
+        let amount = Int(amountString ?? "") ?? 0
         let paymentSuccessUrl = command.argument(at: 4) as? String ?? ""
         let paymentCancelUrl = command.argument(at: 5) as? String
         let priceId = command.argument(at: 6) as? String
         let customerId = command.argument(at: 7) as? String
-        let itemQuantity = command.argument(at: 8) as? Int ?? 1
 
         guard !paymentSuccessUrl.isEmpty else {
             let errorResult = CDVPluginResult(status: CDVCommandStatus_ERROR, messageAs: "Please specify payment success URL")
@@ -22,40 +23,26 @@ import Foundation
             return
         }
         
-        if mode == "subscription" {
-            createSubscriptionLink(secretKey: secretKey, priceId: priceId, customerID: customerId, itemQuantity: itemQuantity, paymentSuccessUrl: paymentSuccessUrl, paymentCancelUrl: paymentCancelUrl, callbackId: command.callbackId)
+        if mode.lowercased() == "subscription" {
+            createSubscriptionLink(secretKey: secretKey, priceId: priceId, customerID: customerId, paymentSuccessUrl: paymentSuccessUrl, paymentCancelUrl: paymentCancelUrl, callbackId: command.callbackId)
         } else {
-            createProduct(secretKey: secretKey, productName: "PayProduct", currency: currency, amount: amount, paymentSuccessUrl: paymentSuccessUrl, paymentCancelUrl: paymentCancelUrl, callbackId: command.callbackId)
+            createPaymentLink(secretKey: secretKey, amount: amount, currency: currency, paymentSuccessUrl: paymentSuccessUrl, paymentCancelUrl: paymentCancelUrl, callbackId: command.callbackId)
         }
     }
     
-    private func createProduct(secretKey: String, productName: String, currency: String, amount: Int, paymentSuccessUrl: String, paymentCancelUrl: String?, callbackId: String) {
-        let requestBody = "name=\(productName)"
-        apiCall(secretKey: secretKey, path: "/products", method: "POST", body: requestBody) { response, error in
-            guard let response = response, let productId = response["id"] as? String else {
-                self.sendErrorResult(error ?? "Failed to create product", callbackId: callbackId)
-                return
-            }
-            self.createPrice(secretKey: secretKey, currency: currency, amount: amount, productId: productId, paymentSuccessUrl: paymentSuccessUrl, paymentCancelUrl: paymentCancelUrl, callbackId: callbackId)
+    private func createPaymentLink(secretKey: String, amount: Int, currency: String, paymentSuccessUrl: String, paymentCancelUrl: String?, callbackId: String) {
+        let productName = "Stripe Product Checkout"
+        
+        // URL encode the success and cancel URLs
+        let encodedSuccessUrl = paymentSuccessUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? paymentSuccessUrl
+        let encodedCancelUrl = paymentCancelUrl?.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+
+        var requestBody = "line_items[0][price_data][unit_amount]=\(amount)&line_items[0][price_data][currency]=\(currency)&line_items[0][price_data][product_data][name]=\(productName)&line_items[0][quantity]=1&mode=payment&success_url=\(encodedSuccessUrl)"
+        
+        if let encodedCancelUrl = encodedCancelUrl {
+            requestBody += "&cancel_url=\(encodedCancelUrl)"
         }
-    }
-    
-    private func createPrice(secretKey: String, currency: String, amount: Int, productId: String, paymentSuccessUrl: String, paymentCancelUrl: String?, callbackId: String) {
-        let requestBody = "unit_amount=\(amount)&currency=\(currency)&product=\(productId)"
-        apiCall(secretKey: secretKey, path: "/prices", method: "POST", body: requestBody) { response, error in
-            guard let response = response, let priceId = response["id"] as? String else {
-                self.sendErrorResult(error ?? "Failed to create price", callbackId: callbackId)
-                return
-            }
-            self.createPaymentLink(secretKey: secretKey, priceId: priceId, paymentSuccessUrl: paymentSuccessUrl, paymentCancelUrl: paymentCancelUrl, callbackId: callbackId)
-        }
-    }
-    
-    private func createPaymentLink(secretKey: String, priceId: String, paymentSuccessUrl: String, paymentCancelUrl: String?, callbackId: String) {
-        var requestBody = "line_items[0][price]=\(priceId)&line_items[0][quantity]=1&mode=payment&success_url=\(paymentSuccessUrl)"
-        if let paymentCancelUrl = paymentCancelUrl {
-            requestBody += "&cancel_url=\(paymentCancelUrl)"
-        }
+
         apiCall(secretKey: secretKey, path: "/checkout/sessions", method: "POST", body: requestBody) { response, error in
             guard let response = response, let paymentLink = response["url"] as? String else {
                 self.sendErrorResult(error ?? "Failed to create payment link", callbackId: callbackId)
@@ -64,9 +51,10 @@ import Foundation
             self.sendSuccessResult(paymentLink, callbackId: callbackId)
         }
     }
+
     
-    private func createSubscriptionLink(secretKey: String, priceId: String?, customerID: String?, itemQuantity: Int, paymentSuccessUrl: String, paymentCancelUrl: String?, callbackId: String) {
-        var requestBody = "line_items[0][price]=\(priceId ?? "")&line_items[0][quantity]=\(itemQuantity)&mode=subscription&success_url=\(paymentSuccessUrl)&customer=\(customerID ?? "")"
+    private func createSubscriptionLink(secretKey: String, priceId: String?, customerID: String?, paymentSuccessUrl: String, paymentCancelUrl: String?, callbackId: String) {
+        var requestBody = "line_items[0][price]=\(priceId ?? "")&line_items[0][quantity]=1&mode=subscription&success_url=\(paymentSuccessUrl)&customer=\(customerID ?? "")"
         if let paymentCancelUrl = paymentCancelUrl {
             requestBody += "&cancel_url=\(paymentCancelUrl)"
         }

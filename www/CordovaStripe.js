@@ -22,7 +22,6 @@ stripeModule.createPaymentSession = (successCallback, errorCallback, options) =>
     // only for subscribe mode
     args.push(getValue(options.priceID, null)); 
     args.push(getValue(options.customerID, null));
-    args.push(getValue(options.itemQuantity, null));
     
     exec(successCallback, errorCallback, 'CordovaStripe', 'createPaymentSession', args);
 }

@@ -34,8 +34,7 @@ const convertObjectToEncoded = (object) => {
 }
 
 // Create a new product 
-const createProduct = async (secretKey, productName, error) => {
-    var productId = null;
+const createProduct = async (secretKey, productName) => {
     var requestBody = {
         name: productName,
     };
@@ -44,25 +43,34 @@ const createProduct = async (secretKey, productName, error) => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Authorization': 'Bearer ' + secretKey,
     }
+    var responseObject = {};
 
     // Call Stripe API
     await apiCall('/products', requestBody, requestHeader, 'POST', 
         (data) => {
             // get product id
-            productId = data.data.id;
+            responseObject.productId = data.data.id;
+            responseObject.message = 'Success create product';
         } 
     , 
         (err) => {
-            error(err);
+            responseObject.productId = null;
+            responseObject.message = err.data.error.message;
+
+            // Handling error from stripe side
+            if (err.response) {
+                if(err.response.data.error.message) {
+                    responseObject.message = err.response.data.error.message;
+                } 
+            }
         }
     );
 
-    return productId;
+    return responseObject;
 }
 
-// Create a new product 
-const createPrice = async (secretKey, currency, unitAmount, productId, error) => {
-    var priceId = null;
+// Create a new price 
+const createPrice = async (secretKey, currency, unitAmount, productId) => {
     var requestBody = {
         unit_amount: unitAmount,
         currency: currency,
@@ -73,31 +81,46 @@ const createPrice = async (secretKey, currency, unitAmount, productId, error) =>
         'Content-Type': 'application/x-www-form-urlencoded',
         'Authorization': 'Bearer ' + secretKey,
     }
+    var responseObject = {};
 
     // Call Stripe API
     await apiCall('/prices', requestBody, requestHeader, 'POST', 
         (data) => {
-            // get product id
-            priceId = data.data.id;
+            // get price id
+            responseObject.priceId = data.data.id;
+            responseObject.message = "Success create price";
         } 
     , 
         (err) => {
-            error(err);
+            responseObject.priceId = null;
+            responseObject.message = "Failed create price";
+
+           // Handling error from stripe side
+           if (err.response) {
+            if(err.response.data.error.message) {
+                responseObject.message = err.response.data.error.message;
+            } 
+        }
         }
     );
 
-    return priceId;
+    return responseObject;
 }
 
-// Create a new product 
-const createPaymentLink = async (secretKey, priceId, mode, paymentSuccessUrl, error) => {
-    var paymentLink = null;
+// Create a new payment link 
+const createPaymentLink = async (secretKey, priceId, paymentSuccessUrl, paymentCancelUrl) => {
     var requestBody = {
         'line_items[0][price]': priceId,
         'line_items[0][quantity]': 1,
         mode: 'payment',
-        success_url: paymentSuccessUrl || ''
+        success_url: paymentSuccessUrl || '',
     };
+    var responseObject = {};
+
+    if(paymentCancelUrl !== null) {
+        requestBody.cancel_url = paymentCancelUrl;
+    }
+
     requestBody = convertObjectToEncoded(requestBody);
     var requestHeader = {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -107,16 +130,70 @@ const createPaymentLink = async (secretKey, priceId, mode, paymentSuccessUrl, er
     // Call Stripe API
     await apiCall('/checkout/sessions', requestBody, requestHeader, 'POST', 
         (data) => {
-            // get product id
-            paymentLink = data.data.url;
+            // get payment link
+            responseObject.paymentLink = data.data.url;
+            responseObject.message = "Success create payment link";
         } 
     , 
         (err) => {
-            error(err);
+            responseObject.paymentLink = null;
+            responseObject.message = "Failed create payment link";
+
+            // Handling error from stripe side
+            if (err.response) {
+                if(err.response.data.error.message) {
+                    responseObject.message = err.response.data.error.message;
+                } 
+            }
         }
     );
 
-    return paymentLink;
+    return responseObject;
+}
+
+// Create a new subscription link 
+const createSubscriptionLink = async (secretKey, priceId, customerID, itemQuantity, paymentSuccessUrl, paymentCancelUrl, error) => {
+    var requestBody = {
+        'line_items[0][price]': priceId,
+        'line_items[0][quantity]': itemQuantity,
+        mode: 'subscription',
+        success_url: paymentSuccessUrl || '',
+        customer: customerID
+    };
+    var responseObject = {};
+
+    if(paymentCancelUrl !== null) {
+        requestBody.cancel_url = paymentCancelUrl;
+    }
+
+    requestBody = convertObjectToEncoded(requestBody);
+    var requestHeader = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Bearer ' + secretKey,
+    }
+
+    // Call Stripe API
+    await apiCall('/checkout/sessions', requestBody, requestHeader, 'POST', 
+        (data) => {
+            // get subscription link
+            responseObject.paymentLink = data.data.url;
+            responseObject.message = "Success create subscription link";
+        } 
+    , 
+        (err) => {
+            responseObject.paymentLink = null;
+            responseObject.message = "Failed create subscription link";
+
+            // Handling error from stripe side
+            if (err.response) {
+                if(err.response.data.error.message) {
+                    responseObject.message = err.response.data.error.message;
+                } 
+            }
+        }
+    );
+
+    return responseObject;
 }
 
 // Create new payment session
@@ -126,31 +203,42 @@ browserMethod.createPaymentSession = async (success, error, args) => {
     var currency = args[2];
     var amount = args[3];
     var paymentSuccessUrl = args[4];
+    var paymentCancelUrl = args[5] || null;
+    var priceId = args[6] || null;
+    var customerID = args[7] || null;
+    var itemQuantity = args[8] || null;
+    var paymentLink = null;
 
     if(paymentSuccessUrl === null) {
         error("Please specify payment success URL");
     }
 
-    // createProduct
-    var productId = await createProduct(secretKey, 'Test Product', error);
-    if(productId === null) {
-        error("Failed when create product to process");
+    if(mode !== 'subscription') {
+        // payment mode required create test product
+        // createProduct
+        var product = await createProduct(secretKey, 'PayProduct');
+        if(product.productId === null) {
+            error(product.message);
+        }
+
+        // createPrice
+        var price = await createPrice(secretKey, currency, amount, product.productId);
+        if(price.priceId === null) {
+            error(price.message);
+        }
+
+        // createPaymentLink
+        payment = await createPaymentLink(secretKey, price.priceId, paymentSuccessUrl, paymentCancelUrl);
+    } else {
+        payment  = await createSubscriptionLink(secretKey, priceId, customerID, itemQuantity, paymentSuccessUrl, paymentCancelUrl);
     }
 
-    // createPrice
-    var priceId = await createPrice(secretKey, currency, amount, productId, error);
-    if(priceId === null) {
-        error("Failed when create price to process");
+
+    if(payment.paymentLink === null) {
+        error(payment.message);
+    } else {
+        success(payment.paymentLink);
     }
-
-    // // createPaymentLink
-    var paymentLink = await createPaymentLink(secretKey, priceId, mode, paymentSuccessUrl, error);
-
-    if(paymentLink === null) {
-        error("Failed when create payment link to process");
-    }
-
-    success(paymentLink);
 }
 
 require('cordova/exec/proxy').add('CordovaStripe', browserMethod);

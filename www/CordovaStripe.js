@@ -14,10 +14,15 @@ stripeModule.createPaymentSession = (successCallback, errorCallback, options) =>
     var args = [];
 
     args.push(getValue(options.secretKey, null));
-    args.push(getValue(options.mode, null));
+    args.push(getValue(options.mode, 'payment'));
     args.push(getValue(options.currency, null));
     args.push(getValue(options.amount, null));
     args.push(getValue(options.paymentSuccessUrl, null));
+    args.push(getValue(options.paymentCancelUrl, null));
+    // only for subscribe mode
+    args.push(getValue(options.priceID, null)); 
+    args.push(getValue(options.customerID, null));
+    args.push(getValue(options.itemQuantity, null));
     
     exec(successCallback, errorCallback, 'CordovaStripe', 'createPaymentSession', args);
 }

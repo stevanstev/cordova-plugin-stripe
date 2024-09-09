@@ -127,7 +127,7 @@ const createSubscriptionLink = async (secretKey, priceId, customerID, paymentSuc
 // Create new payment session
 browserMethod.createPaymentSession = async (success, error, args) => {
     var secretKey = args[0];
-    var mode = args[1];
+    var mode = args[1]?.toLowerCase() || "payment";
     var currency = args[2];
     var amount = args[3];
     var paymentSuccessUrl = args[4];

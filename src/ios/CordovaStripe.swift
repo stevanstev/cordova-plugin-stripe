@@ -10,8 +10,7 @@ import Foundation
         let mode = command.argument(at: 1) as? String ?? "payment"
         let currency = command.argument(at: 2) as? String ?? ""
         // convert amount to be int type
-        let amountString = command.argument(at: 3) as? String
-        let amount = Int(amountString ?? "") ?? 0
+        let amount = command.argument(at: 3) as? Int ?? 0
         let paymentSuccessUrl = command.argument(at: 4) as? String ?? ""
         let paymentCancelUrl = command.argument(at: 5) as? String
         let priceId = command.argument(at: 6) as? String

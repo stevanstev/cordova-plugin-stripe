@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 public class CordovaStripe extends CordovaPlugin {
 
     private static final String STRIPE_API_URL = "https://api.stripe.com/v1";
+    public static final String TAG = "CORDOVA_STRIPE_PLUGIN";
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
@@ -116,13 +117,16 @@ public class CordovaStripe extends CordovaPlugin {
 
         @Override
         protected String doInBackground(Void... voids) {
+            HttpURLConnection conn = null;
             try {
+                // Initialize the connection
                 URL url = new URL(STRIPE_API_URL + path);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod(method);
                 conn.setRequestProperty("Authorization", "Bearer " + secretKey);
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 
+                // Send POST data if necessary
                 if ("POST".equals(method)) {
                     conn.setDoOutput(true);
                     try (DataOutputStream wr = new DataOutputStream(conn.getOutputStream())) {
@@ -131,8 +135,20 @@ public class CordovaStripe extends CordovaPlugin {
                     }
                 }
 
+                // Get the response code
                 int responseCode = conn.getResponseCode();
-                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                InputStreamReader streamReader;
+
+                // Determine if the response is an error based on HTTP status code
+                if (responseCode >= 200 && responseCode < 300) {
+                    streamReader = new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8);
+                } else {
+                    // Handle HTTP errors
+                    streamReader = new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8);
+                }
+
+                // Read the response
+                BufferedReader in = new BufferedReader(streamReader);
                 String inputLine;
                 StringBuilder response = new StringBuilder();
 
@@ -141,16 +157,29 @@ public class CordovaStripe extends CordovaPlugin {
                 }
                 in.close();
 
-                if (responseCode == 200) {
+                if (responseCode >= 200 && responseCode < 300) {
+                    // If response is successful
                     return response.toString();
                 } else {
-                    callbackContext.error("API error: " + response.toString());
+                    // Parse the error response and extract the message
+                    JSONObject jsonResponse = new JSONObject(response.toString());
+                    if (jsonResponse.has("error")) {
+                        JSONObject errorObject = jsonResponse.getJSONObject("error");
+                        String errorMessage = errorObject.getString("message");
+                        callbackContext.error(errorMessage);
+                    } else {
+                        callbackContext.error(response.toString());
+                    }
                     return null;
                 }
 
             } catch (Exception e) {
                 callbackContext.error("Network error: " + e.getMessage());
                 return null;
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
             }
         }
 
